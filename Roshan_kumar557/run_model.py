@@ -1,5 +1,7 @@
 import pandas as pd 
 from sklearn.feature_extraction.text import TfidfVectorizer
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 from cleantext import cleanText, SimpleCleanText, LabelEncoderStep
 from data_splitter import simpleSplitData, DataSplit
@@ -9,29 +11,38 @@ from extract_text_from_pdf import ExtractText, simpleExtractTextPdf
 from fetch_job import SimpleFetchJobsStrategy, FindJobs
 from get_suggestion import SimpleResumeSuggestions, ResumeSuggestion
 from calculate_similarity import Similarity,SimplecalculateSimilarity
+import mlflow
+import mlflow.sklearn
+
 def ml_pipeline(pdf_path: str):
-    data = pd.read_csv(r"C:\Users\rk186\OneDrive\Desktop\62_capstone\UpdatedResumeDataSet.csv")
-    data["Clean_Resume"] = data["Resume"].apply(lambda x: cleanText(SimpleCleanText(x)).clean())
-    encoder_strategy = cleanText(LabelEncoderStep(data, "Category"))
-    data["Label_cat"] ,encoder= encoder_strategy.clean()
-
-    train_test_split = DataSplit(simpleSplitData("Clean_Resume"))
-    x_train, x_test, y_train, y_test, vectorizer = train_test_split.split_data(data, target_col="Label_cat")
+    mlflow.autolog()
     
-    classifier = SimpleKNeighborsClassifier(x_train, y_train, x_test, y_test)
-    classifier.vectorizer = vectorizer  # Manually attach vectorizer for later use
-    knn_model = TrainModel(classifier).trainModel()
+    with mlflow.start_run():
+        data = pd.read_csv(r"C:\Users\rk186\OneDrive\Desktop\62_capstone\UpdatedResumeDataSet.csv")
+        logging.info("Cleaining text started.")
+        data["Clean_Resume"] = data["Resume"].apply(lambda x: cleanText(SimpleCleanText(x)).clean())
+        logging.info("Cleaing text done.")
 
-    # Extract and clean resume text from uploaded PDF
-    raw_text = ExtractText(simpleExtractTextPdf()).extractTextFromPdf(pdf_path)
-    cleaned_resume = cleanText(SimpleCleanText(raw_text)).clean()
+        encoder_strategy = cleanText(LabelEncoderStep(data, "Category"))
+        data["Label_cat"] ,encoder= encoder_strategy.clean()
 
-    tfidf = classifier.vectorizer
-    resume_vector = tfidf.transform([cleaned_resume])
-    predicted_category_num = classifier.model.predict(resume_vector)[0]
-    predicted_category = encoder.inverse_transform([predicted_category_num])[0]
+        train_test_split = DataSplit(simpleSplitData("Clean_Resume"))
+        x_train, x_test, y_train, y_test, vectorizer = train_test_split.split_data(data, target_col="Label_cat")
+        
+        classifier = SimpleKNeighborsClassifier(x_train, y_train, x_test, y_test)
+        classifier.vectorizer = vectorizer  # Manually attach vectorizer for later use
+        knn_model = TrainModel(classifier).trainModel()
 
-    print("\nPredicted Resume Category:", predicted_category)
+        # Extract and clean resume text from uploaded PDF
+        raw_text = ExtractText(simpleExtractTextPdf()).extractTextFromPdf(pdf_path)
+        cleaned_resume = cleanText(SimpleCleanText(raw_text)).clean()
+
+        tfidf = classifier.vectorizer
+        resume_vector = tfidf.transform([cleaned_resume])
+        predicted_category_num = classifier.model.predict(resume_vector)[0]
+        predicted_category = encoder.inverse_transform([predicted_category_num])[0]
+
+        print("\nPredicted Resume Category:", predicted_category)
 
     while True:
         print("\nChoose an option:")
