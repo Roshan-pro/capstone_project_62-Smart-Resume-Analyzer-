@@ -1,0 +1,16 @@
+pandas
+numpy
+scikit-learn
+keras
+matplotlib
+seaborn
+nltk
+regrex
+pdfplumber
+re
+string
+contractions
+beautifulsoup4
+flask
+torch
+contractions
